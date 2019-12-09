@@ -1,0 +1,16 @@
+#!/bin/bash
+
+echo "Run this scrip in sudo"
+echo "[ALERT] Make sure that docker is logged in!!!"
+read -p "Docker logged in? Are you sure? " -n 1 -r
+echo    # (optional) move to a new line
+if [[ ! $REPLY =~ ^[Yy]$ ]]
+then
+	cd /home/ubuntu/Documents/ai/datanext/src
+	docker-compose up -d
+	docker tag datanext/beam:latest acidaes/datanext.engine:0.0.0.1
+	docker push acidaes/datanext.engine:0.0.0.1
+	docker push datanext/beam:latest
+fi
+
+

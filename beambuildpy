@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+
+''' 
+--------------------------------------------------------
+                         REFERENCES
+--------------------------------------------------------
+[1] http://ozzmaker.com/add-colour-to-text-in-python/
+
+'''
+
+import os
+import subprocess
+import argparse
+import sys
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    
+def dockerbuild(dockedlogged, nameoftheimage, debugmode, workingdir):
+    
+    os.chdir(workingdir)
+    print(bcolors.FAIL + bcolors.BOLD + "[WARNING] Run this scrip in sudo!! \n" + bcolors.ENDC)
+    
+# =============================================================================
+# DEBUG MODE
+# =============================================================================
+    if debugmode.lower() == 'y':
+        print(bcolors.WARNING + "[ALERT] Running the script in debub mode!" + bcolors.ENDC)
+        print(bcolors.OKBLUE + "\n[1] Docker Login\n\
+[2] Docker-Compose down\n\
+[3] Delete Image\n\
+[4] Docker-Compose down and Delete the Image\n\
+[5] [ERROR] Failed to execute goal on project engine: Could not resolve dependencies for project\
+org.acidaes.datanext:engine:jar:1.0: Could not find artifact com.github.zhicwu:cassandra-jdbc-driver:jar:0.6.1\
+at specified path /var/DataFlowService\src\lib\cassandra-jdbc-driver-0.6.2-shaded.jar \n\
+[*] Entre Build Mode\n\
+[#] Exit Script" + bcolors.ENDC)
+        debugInput = input("\n" + bcolors.WARNING +"Enter your input -> " + bcolors.ENDC)
+        
+        if debugInput == '1':
+             while dockedlogged.lower() == 'n':
+                 subprocess.call('sudo docker logout', shell=True)
+                 subprocess.call('sudo docker login', shell=True)
+                 dockedlogged = input(bcolors.WARNING + "Logged in successfully? (y/n) -> " + bcolors.ENDC)
+                 os.system("clear")
+                 dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+        
+        elif debugInput == '2':
+            subprocess.call('sudo docker-compose down', shell=True)
+            os.system("clear")
+            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+            
+        elif debugInput == '3':
+            subprocess.call('sudo docker rmi ' + nameoftheimage, shell=True)
+            os.system("clear")
+            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+        
+        elif debugInput == '4':
+            subprocess.call('sudo docker-compose down', shell=True)
+            subprocess.call('sudo docker rmi ' + nameoftheimage, shell=True)
+            os.system("clear")
+            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+            
+        elif debugInput == '5':
+            pom = open(workingdir+'/DataFlowService/pom.xml', 'r')
+            pomxml = pom.read().replace(r"${project.basedir}\src\lib\cassandra-jdbc-driver-0.6.2-shaded.jar</systemPath>",
+                   "${project.basedir}/src/lib/cassandra-jdbc-driver-0.6.2-shaded.jar</systemPath>")
+            print(pomxml, file=open(workingdir+'/DataFlowService/pom.xml', 'w'))
+            os.system("clear")
+            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+        
+        elif debugInput == '*':
+            os.system("clear")
+            dockerbuild(dockedlogged, nameoftheimage, debugmode='n', workingdir=workingdir)
+
+        elif debugInput == '#':
+            sys.exit()
+
+# =============================================================================
+# BUILD MODE
+# =============================================================================
+            
+    elif debugmode.lower() == 'n':
+        try:
+            os.system("clear")
+            print(bcolors.WARNING + "[ALERT] Running the script in build mode!" + bcolors.ENDC)
+            Dockerfile = '''#This is a phusion/baseimage:0.11 Image
+FROM phusion/baseimage:0.11
+MAINTAINER rashbits@gmail.com
+
+# Installing dependencies and java version 8
+RUN apt-get update
+RUN apt-get upgrade -y
+RUN apt-get install -y  software-properties-common
+RUN apt-get update -y
+RUN apt install openjdk-8-jdk -y
+RUN apt install openjdk-8-jre -y
+RUN apt install maven -y
+RUN apt-get clean
+
+# Running echo command cat >> /etc/environment <<EOL
+#CMD ["echo",  "cat >> /etc/environment <<EOL"]
+
+# Making directory /var/datanext
+RUN mkdir /var/DataFlowService
+
+# Copying file from target folder to above created folder
+COPY ./DataFlowService /var/DataFlowService
+
+#Downloading flink
+WORKDIR /var
+
+#Using Maven to build jar
+WORKDIR /var/DataFlowService
+RUN mvn clean install
+RUN mvn package
+
+# running .jar file
+CMD java -jar /var/DataFlowService/target/engine-bundled.jar
+'''
+            
+            print(Dockerfile, file=open('Dockerfile', 'w'))
+            print(bcolors.WARNING + "[ALERT] Created Dockerfile!" + bcolors.ENDC)
+            
+            docker_compose = '''version: '3'
+
+services:
+  beam:
+    image: '''+nameoftheimage+'''
+    container_name: beam
+    ports: 
+      - 3093:3093
+    volumes:
+      - ./DataFlowService/src/main/resources:/var/DataFlowService/src/main/resources
+    environment:
+      - BASEURL=http://dn.crmnext.com/datanextapi
+      - DATACOUNTSERVICE=/datanext/Flows/SaveFlowCount
+      - DATAWRITESERVICE=/datanext/DataSet/AddData?ownerId=%s&datasetId=%s
+      - DATASETREADSERVICE=/datanext/dataset/readdataset?ownerId=%s&pageIndex=1&pageCount=0&datasetInstanceId=%s
+      - DATAHUBREADSERVICE=/datanext/datasource/Getdata?ownerId=%s
+    build: .'''
+
+            print(docker_compose, file=open('docker-compose.yml', 'w'))
+            print(bcolors.WARNING + "[ALERT] Created docker-compose.yml!" + bcolors.ENDC)
+            print(bcolors.WARNING + "[ALERT] Running docker-compose up!" + bcolors.ENDC)
+            subprocess.call('sudo docker-compose up -d', shell=True)
+            print(bcolors.WARNING + "[ALERT] pushing the docker image!" + bcolors.ENDC)
+            subprocess.call('docker push '+nameoftheimage, shell=True)
+            
+        except:
+            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+
+# =============================================================================
+# ARGUMENTS
+# =============================================================================
+
+ap = argparse.ArgumentParser()
+ap.add_argument("-dl", "--dockedlogged", required=False, type=str, default = 'n',
+                help = "Argument to know that docker is logged in or not")
+ap.add_argument("-n", "--nameoftheimage", required=False, type=str, default='acidaes/datanext.engine:0.0.0.1',
+                help="Argumen to know the image name the NAME and TAG of the new images as <IMAGE-NAME>:<TAG>")
+ap.add_argument("-db", "--debugmode", required=False, type=str, default='n',
+                help="Running the script in debug mode")
+ap.add_argument("-wd", "--workingdir", required=False, type=str, default='/home/ubuntu/Documents/ai/datanext/src',
+                help="Specifpying the working directory")
+args = vars(ap.parse_args())
+
+dockerbuild(dockedlogged=args['dockedlogged'],
+                nameoftheimage=args['nameoftheimage'],
+                debugmode=args['debugmode'],
+                workingdir=args['workingdir'])
