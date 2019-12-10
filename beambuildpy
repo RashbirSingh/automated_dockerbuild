@@ -108,6 +108,7 @@ at specified path /var/DataFlowService\src\lib\cassandra-jdbc-driver-0.6.2-shade
             dockerbuild(nameoftheimage, debugmode=False, workingdir=workingdir)
 
         elif debugInput == '#':
+            os.system("clear")
             sys.exit()
         
         else:
@@ -176,9 +177,11 @@ services:
     environment:
       - BASEURL=http://dn.crmnext.com/datanextapi
       - DATACOUNTSERVICE=/datanext/Flows/SaveFlowCount
-      - DATAWRITESERVICE=/datanext/DataSet/AddData?ownerId=%s&datasetId=%s
+      - DATAWRITESERVICE=/datanext/dataset/AddData
+      - CREATESCHEMASERVICE=/datanext/dataset/createschema
       - DATASETREADSERVICE=/datanext/dataset/readdataset?ownerId=%s&pageIndex=1&pageCount=0&datasetInstanceId=%s
       - DATAHUBREADSERVICE=/datanext/datasource/Getdata?ownerId=%s
+      - RUNNINGIDSERVICE=/datanext/scheduler/updateNumber?ownerId=%s&flowId=%s&flowVersion=%s
     build: .'''
 
             print(docker_compose, file=open('docker-compose.yml', 'w'))
