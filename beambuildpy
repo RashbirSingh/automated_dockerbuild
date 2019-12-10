@@ -12,6 +12,7 @@ import os
 import subprocess
 import argparse
 import sys
+import time
 
 class bcolors:
     HEADER = '\033[95m'
@@ -23,7 +24,7 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     
-def dockerbuild(dockedlogged, nameoftheimage, debugmode, workingdir):
+def dockerbuild(nameoftheimage, workingdir, debugmode=False, rebuild=False):
     
     os.chdir(workingdir)
     print(bcolors.FAIL + bcolors.BOLD + "[WARNING] Run this scrip in sudo!! \n" + bcolors.ENDC)
@@ -31,42 +32,47 @@ def dockerbuild(dockedlogged, nameoftheimage, debugmode, workingdir):
 # =============================================================================
 # DEBUG MODE
 # =============================================================================
-    if debugmode.lower() == 'y':
+    if debugmode == True:
         print(bcolors.WARNING + "[ALERT] Running the script in debub mode!" + bcolors.ENDC)
-        print(bcolors.OKBLUE + "\n[1] Docker Login\n\
+        print(bcolors.OKBLUE + "\n[0] Restart Docker Service \n\
+[1] Docker Login\n\
 [2] Docker-Compose down\n\
 [3] Delete Image\n\
 [4] Docker-Compose down and Delete the Image\n\
 [5] [ERROR] Failed to execute goal on project engine: Could not resolve dependencies for project\
 org.acidaes.datanext:engine:jar:1.0: Could not find artifact com.github.zhicwu:cassandra-jdbc-driver:jar:0.6.1\
 at specified path /var/DataFlowService\src\lib\cassandra-jdbc-driver-0.6.2-shaded.jar \n\
+[10] Remove all images \n\
+[11] Remove all exited containers \n\
+[12] Stop and remove all containers \n\
 [*] Entre Build Mode\n\
 [#] Exit Script" + bcolors.ENDC)
         debugInput = input("\n" + bcolors.WARNING +"Enter your input -> " + bcolors.ENDC)
         
         if debugInput == '1':
-             while dockedlogged.lower() == 'n':
-                 subprocess.call('sudo docker logout', shell=True)
-                 subprocess.call('sudo docker login', shell=True)
-                 dockedlogged = input(bcolors.WARNING + "Logged in successfully? (y/n) -> " + bcolors.ENDC)
-                 os.system("clear")
-                 dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+            dockedlogged = 'n'
+            while dockedlogged.lower() == 'n':
+                subprocess.call('sudo docker logout', shell=True)
+                subprocess.call('sudo docker login', shell=True)
+                dockedlogged = input(bcolors.WARNING + "Logged in successfully? (y/n) -> " + bcolors.ENDC)
+                os.system("clear")
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
         
         elif debugInput == '2':
             subprocess.call('sudo docker-compose down', shell=True)
             os.system("clear")
-            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
             
         elif debugInput == '3':
             subprocess.call('sudo docker rmi ' + nameoftheimage, shell=True)
             os.system("clear")
-            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
         
         elif debugInput == '4':
             subprocess.call('sudo docker-compose down', shell=True)
             subprocess.call('sudo docker rmi ' + nameoftheimage, shell=True)
             os.system("clear")
-            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
             
         elif debugInput == '5':
             pom = open(workingdir+'/DataFlowService/pom.xml', 'r')
@@ -74,20 +80,48 @@ at specified path /var/DataFlowService\src\lib\cassandra-jdbc-driver-0.6.2-shade
                    "${project.basedir}/src/lib/cassandra-jdbc-driver-0.6.2-shaded.jar</systemPath>")
             print(pomxml, file=open(workingdir+'/DataFlowService/pom.xml', 'w'))
             os.system("clear")
-            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
+            
+        elif debugInput == '10':
+            subprocess.call('sudo docker rmi $(sudo docker images -a -q)', shell=True)
+            os.system("clear")
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
+            
+        elif debugInput == '11':
+            subprocess.call('sudo docker rm $(sudo docker ps -a -f status=exited -q)', shell=True)
+            os.system("clear")
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
+
+        elif debugInput == '12':
+            subprocess.call('sudo docker stop $(sudo docker ps -a -q)', shell=True)
+            subprocess.call('sudo docker rm $(sudo docker ps -a -q)', shell=True)
+            os.system("clear")
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
+        
+        elif debugInput == '0':
+            subprocess.call('sudo service docker restart', shell=True)
+            os.system("clear")
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
         
         elif debugInput == '*':
             os.system("clear")
-            dockerbuild(dockedlogged, nameoftheimage, debugmode='n', workingdir=workingdir)
+            dockerbuild(nameoftheimage, debugmode=False, workingdir=workingdir)
 
         elif debugInput == '#':
             sys.exit()
+        
+        else:
+            print(bcolors.FAIL + bcolors.BOLD + "\n[WARNING] Wrong input!" + bcolors.ENDC)
+            time.sleep(3)
+            os.system("clear")
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
+        
 
 # =============================================================================
 # BUILD MODE
 # =============================================================================
             
-    elif debugmode.lower() == 'n':
+    elif debugmode == False:
         try:
             os.system("clear")
             print(bcolors.WARNING + "[ALERT] Running the script in build mode!" + bcolors.ENDC)
@@ -149,30 +183,36 @@ services:
 
             print(docker_compose, file=open('docker-compose.yml', 'w'))
             print(bcolors.WARNING + "[ALERT] Created docker-compose.yml!" + bcolors.ENDC)
-            print(bcolors.WARNING + "[ALERT] Running docker-compose up!" + bcolors.ENDC)
-            subprocess.call('sudo docker-compose up -d', shell=True)
+            if rebuild == True:
+                print(bcolors.WARNING + "[ALERT] - Rebuilding Image - Running docker-compose up --build!" + bcolors.ENDC)
+                subprocess.call('docker-compose up --build -d', shell=True)
+            elif rebuild == False:
+                print(bcolors.WARNING + "[ALERT] Running docker-compose up!" + bcolors.ENDC)
+                subprocess.call('sudo docker-compose up -d', shell=True)
             print(bcolors.WARNING + "[ALERT] pushing the docker image!" + bcolors.ENDC)
             subprocess.call('docker push '+nameoftheimage, shell=True)
             
         except:
-            dockerbuild(dockedlogged, nameoftheimage, debugmode='y', workingdir=workingdir)
+            dockerbuild(nameoftheimage, debugmode=True, workingdir=workingdir)
 
 # =============================================================================
 # ARGUMENTS
 # =============================================================================
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-dl", "--dockedlogged", required=False, type=str, default = 'n',
-                help = "Argument to know that docker is logged in or not")
+#ap.add_argument("-dl", "--dockedlogged", required=False, type=bool, default = False,
+#                help = "Argument to know that docker is logged in or not")
 ap.add_argument("-n", "--nameoftheimage", required=False, type=str, default='acidaes/datanext.engine:0.0.0.1',
                 help="Argumen to know the image name the NAME and TAG of the new images as <IMAGE-NAME>:<TAG>")
-ap.add_argument("-db", "--debugmode", required=False, type=str, default='n',
+ap.add_argument("-db", "--debugmode", required=False, type=bool, default=False,
                 help="Running the script in debug mode")
 ap.add_argument("-wd", "--workingdir", required=False, type=str, default='/home/ubuntu/Documents/ai/datanext/src',
-                help="Specifpying the working directory")
+                help="Specifying the working directory")
+ap.add_argument("-rb", "--rebuild", required=False, type=bool, default=False,
+                help="Rebuild the docker image or not")
 args = vars(ap.parse_args())
 
-dockerbuild(dockedlogged=args['dockedlogged'],
-                nameoftheimage=args['nameoftheimage'],
-                debugmode=args['debugmode'],
-                workingdir=args['workingdir'])
+dockerbuild(nameoftheimage=args['nameoftheimage'],
+            debugmode=args['debugmode'],
+            workingdir=args['workingdir'],
+            rebuild=args['rebuild'])
