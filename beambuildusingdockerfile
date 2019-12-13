@@ -1,0 +1,10 @@
+#!/bin/bash
+
+prvs=$1
+new=$2
+cd /home/ubuntu/Documents/ai/datanext/src
+cp /home/ubuntu/Documents/Dockerfile /home/ubuntu/Documents/ai/datanext/src
+docker build . -t 192.168.0.169:30500/datanext:beamV0.$prvs
+docker tag 192.168.0.169:30500/datanext:beamV0.$prvs 192.168.0.169:30500/datanext:beamV0.$new
+docker push 192.168.0.169:30500/datanext:beamV0.$new
+
